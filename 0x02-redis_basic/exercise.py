@@ -2,7 +2,7 @@
 
 import redis
 import uuid
-from typing import Union
+from typing import Union, Callable, Optional
 
 
 class Cache:
@@ -18,33 +18,26 @@ class Cache:
         self._redis.set(random_key, data)
         return random_key
 
-    def fn(self, key) -> str:
+    def get(self, key, fn=None):
         """
-        Retrieves data from the Redis server and decodes it if it's of type bytes
+        Retrieve a value from Redis,
+        optionally applying a typecasting function.
+        If the key does not exist, return None.
+        If fn is provided, apply fn to the value before returning.
         """
-        data = self._redis.get(key)
-        if type(data) == bytes:
-            data = data.decode('utf-8')
-            return data
-        return data
-    
-    def get(self, key:str, fn=None):
-        """
-        Retrieve a value from Redis, optionally applying a transformation function.
-        """
-        value = self._redis.store.get(key)
-        if fn and callable(fn):
-            return fn(value)
-        return value
+        value = self._redis.get(key)
+        if value is None:
+            return None
+        return fn(value) if fn else value
 
-    def get_str(self, key:str) -> Union[str, None]:
+    def get_str(self, key: str) -> Optional[str]:
         """
         Retrieves a value from Redis and typecastes it to a string
         """
-        return self.get(key, lambda value: value.decode('utf-8') if type(value) == bytes else str(value))
+        return self.get(key, lambda value: value.decode('utf-8'))
 
-    def get_int(self, key):
+    def get_int(self, key: str) -> Optional[int]:
         """
         Retrieves a value from Redis and typecastes it to an interger
         """
-        return self.get(key, lambda value: value.decode('utf-8') if type(value) == bytes else int(value))
+        return self.get(key, lambda value: int(value.decode('utf-8')))

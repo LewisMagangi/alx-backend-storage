@@ -51,7 +51,7 @@ def replay(method: Callable) -> None:
 
     # Get inputs and outputs using lrange
     inputs = redis_instance.lrange(f"{method_name}:inputs", 0, -1)
-    outputs = redis_instance.lrange(f"{method_name}:outputs", 0, -1) 
+    outputs = redis_instance.lrange(f"{method_name}:outputs", 0, -1)
 
     # Zip inputs and outputs together and print each call
     for inp, outp in zip(inputs, outputs):

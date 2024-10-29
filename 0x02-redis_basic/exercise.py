@@ -92,4 +92,3 @@ class Cache:
     def get_int(self, key: str) -> Optional[int]:
         """Get integer data from Redis"""
         return self.get(key, lambda value: int(value.decode('utf-8')))
-

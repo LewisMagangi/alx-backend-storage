@@ -51,7 +51,7 @@ def replay(method: Callable) -> None:
         # Convert bytes to string and format properly
         input_str = inp.decode('utf-8').strip('()')
         output_str = outp.decode('utf-8')
-        print(f"{method_name}(*({input_str},)) -> {output_str}")
+        print(f"{method_name}(*({input_str})) -> {output_str}")
 
 
 class Cache:

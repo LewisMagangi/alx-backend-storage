@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Redis cache implementation module"""
+"""Redis cache implementation with call history replay"""
 import redis
 from functools import wraps
 import uuid
@@ -37,6 +37,29 @@ def call_history(method: Callable) -> Callable:
     return wrapper
 
 
+def replay(method: Callable) -> None:
+    """Display the history of calls for a particular function"""
+    # Get the Redis instance from the method's class
+    redis_instance = method.__self__._redis
+    method_name = method.__qualname__
+    # Get the number of calls
+    calls = redis_instance.get(method_name)
+    calls = int(calls) if calls else 0
+
+    # Print the total calls
+    print(f"{method_name} was called {calls} times:")
+
+    # Get inputs and outputs using lrange
+    inputs = redis_instance.lrange(f"{method_name}:inputs", 0, -1)
+    outputs = redis_instance.lrange(f"{method_name}:outputs", 0, -1) 
+
+    # Zip inputs and outputs together and print each call
+    for inp, outp in zip(inputs, outputs):
+        input_str = inp.decode('utf-8')
+        output_str = outp.decode('utf-8')
+        print(f"{method_name}{input_str} -> {output_str}")
+
+
 class Cache:
     """Cache class for Redis operations"""
 
@@ -69,3 +92,4 @@ class Cache:
     def get_int(self, key: str) -> Optional[int]:
         """Get integer data from Redis"""
         return self.get(key, lambda value: int(value.decode('utf-8')))
+

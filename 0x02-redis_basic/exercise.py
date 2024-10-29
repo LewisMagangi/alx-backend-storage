@@ -54,6 +54,31 @@ def replay(method: Callable) -> None:
         print(f"{method_name}(*({input_str})) -> {output_str}")
 
 
+def cache_page(expiration: int = 10) -> Callable:
+    """Decorator to cache page content and track access count"""
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, url: str) -> str:
+            # Track URL access count
+            cache_key_count = f"count:{url}"
+            self._redis.incr(cache_key_count)
+
+            # Attempt to retrieve cached content
+            cache_key_content = f"cached:{url}"
+            cached_content = self._redis.get(cache_key_content)
+
+            if cached_content:
+                return cached_content.decode('utf-8')
+
+            # Fetch and cache content if not cached
+            content = func(self, url)
+            self._redis.setex(cache_key_content, expiration, content)
+            return content
+
+        return wrapper
+    return decorator
+
+
 class Cache:
     """Cache class for Redis operations"""
 
@@ -86,3 +111,9 @@ class Cache:
     def get_int(self, key: str) -> Optional[int]:
         """Get integer data from Redis"""
         return self.get(key, lambda value: int(value.decode('utf-8')))
+
+    @cache_page()
+    def get_page(self, url: str) -> str:
+        """Fetch and cache the HTML content of a URL"""
+        response = requests.get(url)
+        return response.text

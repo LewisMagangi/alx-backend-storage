@@ -1,37 +1,48 @@
 #!/usr/bin/env python3
-"""
-Web file
-"""
-import requests
+"""Module to fetch and cache web pages using Redis with request tracking and expiration"""
 import redis
+import requests
 from functools import wraps
+from typing import Callable
 
-store = redis.Redis()
-
-
-def count_url_access(method):
-    """ Decorator counting how many times
-    a Url is accessed """
-    @wraps(method)
-    def wrapper(url):
-        cached_key = "cached:" + url
-        cached_data = store.get(cached_key)
-        if cached_data:
-            return cached_data.decode("utf-8")
-
-        count_key = "count:" + url
-        html = method(url)
-
-        store.incr(count_key)
-        store.set(cached_key, html)
-        store.expire(cached_key, 10)
-        return html
-    return wrapper
+# Initialize Redis client
+cache = redis.Redis()
 
 
-@count_url_access
+def cache_page(expiration: int = 10) -> Callable:
+    """Decorator to cache page content and track access count"""
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(url: str) -> str:
+            # Track the URL access count
+            cache_key_count = f"count:{url}"
+            cache.incr(cache_key_count)
+
+            # Attempt to retrieve cached content
+            cache_key_content = f"cached:{url}"
+            cached_content = cache.get(cache_key_content)
+
+            if cached_content:
+                return cached_content.decode('utf-8')
+
+            # Fetch and cache content if not cached
+            content = func(url)
+            cache.setex(cache_key_content, expiration, content)
+            return content
+
+        return wrapper
+    return decorator
+
+
+@cache_page()
 def get_page(url: str) -> str:
-    """ Returns HTML content of a url """
-    res = requests.get(url)
-    return res.text
+    """Fetch the HTML content of a URL and cache it"""
+    response = requests.get(url)
+    return response.text
+
+
+# Sample usage
+if __name__ == "__main__":
+    url = "http://slowwly.robertomurray.co.uk/delay/5000/url/https://www.example.com"
+    print(get_page(url))
 

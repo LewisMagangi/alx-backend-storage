@@ -14,6 +14,7 @@ def count_calls(method: Callable) -> Callable:
         return method(self, *args, **kwargs)
     return wrapper
 
+
 class Cache:
     def __init__(self):
         self._redis = redis.Redis(host='localhost', port='6379', db=0)

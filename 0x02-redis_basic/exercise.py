@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 
 import redis
 from functools import wraps
@@ -12,6 +12,25 @@ def count_calls(method: Callable) -> Callable:
         key = method.__qualname__
         self._redis.incr(key)
         return method(self, *args, **kwargs)
+    return wrapper
+
+
+def call_history(method: Callable) -> Callable:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Create keys for inputs and outputs
+        inputs_key = f"{method.__module__}.{method.__qualname__}:inputs"
+        outputs_key = f"{method.__module__}.{method.__qualname__}:outputs"
+
+        # Normalize inputs and push to Redis
+        self._redis.rpush(inputs_key, str(args))
+
+        # Execute the original function
+        output = method(*args, **kwargs)
+
+        # Push output to Redis
+        self._redis.rpush(outputs_key, str(output))
+
+        return output
     return wrapper
 
 

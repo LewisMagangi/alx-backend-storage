@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
 
 import redis
+from functools import wraps
 import uuid
 from typing import Union, Callable, Optional
 
+
+def count_calls(method: Callable) -> Callable:
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        key = method.__qualname__
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 class Cache:
     def __init__(self):
         self._redis = redis.Redis(host='localhost', port='6379', db=0)
         self._redis.flushdb()
 
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Stores data in a Redis server and returns a random gen key
@@ -28,7 +38,13 @@ class Cache:
         value = self._redis.get(key)
         if value is None:
             return None
-        return fn(value) if fn else value
+        if fn is None:
+            try:
+                # Try to decode as integer for counter values
+                return int(value)
+            except (ValueError, TypeError):
+                return value
+            return fn(value)
 
     def get_str(self, key: str) -> Optional[str]:
         """

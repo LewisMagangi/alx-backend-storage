@@ -1,12 +1,13 @@
- #!/usr/bin/env python3
-
+#!/usr/bin/env python3
+"""Redis cache implementation module"""
 import redis
 from functools import wraps
 import uuid
-from typing import Union, Callable, Optional
+from typing import Union, Callable, Optional, Any
 
 
 def count_calls(method: Callable) -> Callable:
+    """Decorator to count method calls"""
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         key = method.__qualname__
@@ -16,18 +17,20 @@ def count_calls(method: Callable) -> Callable:
 
 
 def call_history(method: Callable) -> Callable:
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    """Decorator to store the history of inputs and outputs"""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
         # Create keys for inputs and outputs
-        inputs_key = f"{method.__module__}.{method.__qualname__}:inputs"
-        outputs_key = f"{method.__module__}.{method.__qualname__}:outputs"
+        inputs_key = f"{method.__qualname__}:inputs"
+        outputs_key = f"{method.__qualname__}:outputs"
 
-        # Normalize inputs and push to Redis
+        # Store input arguments
         self._redis.rpush(inputs_key, str(args))
 
         # Execute the original function
-        output = method(*args, **kwargs)
+        output = method(self, *args, **kwargs)
 
-        # Push output to Redis
+        # Store output
         self._redis.rpush(outputs_key, str(output))
 
         return output
@@ -35,26 +38,23 @@ def call_history(method: Callable) -> Callable:
 
 
 class Cache:
+    """Cache class for Redis operations"""
+
     def __init__(self):
-        self._redis = redis.Redis(host='localhost', port='6379', db=0)
+        """Initialize Redis client"""
+        self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @call_history
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
-        """
-        Stores data in a Redis server and returns a random gen key
-        """
+        """Store data in Redis with random key"""
         random_key = str(uuid.uuid4())
         self._redis.set(random_key, data)
         return random_key
 
-    def get(self, key, fn=None):
-        """
-        Retrieve a value from Redis,
-        optionally applying a typecasting function.
-        If the key does not exist, return None.
-        If fn is provided, apply fn to the value before returning.
-        """
+    def get(self, key: str, fn: Optional[Callable] = None) -> Any:
+        """Get data from Redis with optional type conversion"""
         value = self._redis.get(key)
         if value is None:
             return None
@@ -63,13 +63,9 @@ class Cache:
         return fn(value)
 
     def get_str(self, key: str) -> Optional[str]:
-        """
-        Retrieves a value from Redis and typecastes it to a string
-        """
+        """Get string data from Redis"""
         return self.get(key, lambda value: value.decode('utf-8'))
 
     def get_int(self, key: str) -> Optional[int]:
-        """
-        Retrieves a value from Redis and typecastes it to an interger
-        """
+        """Get integer data from Redis"""
         return self.get(key, lambda value: int(value.decode('utf-8')))

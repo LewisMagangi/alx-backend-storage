@@ -39,12 +39,8 @@ class Cache:
         if value is None:
             return None
         if fn is None:
-            try:
-                # Try to decode as integer for counter values
-                return int(value)
-            except (ValueError, TypeError):
-                return value
-            return fn(value)
+            return value
+        return fn(value)
 
     def get_str(self, key: str) -> Optional[str]:
         """

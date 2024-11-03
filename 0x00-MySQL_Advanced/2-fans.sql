@@ -1,4 +1,4 @@
---script
+-- script
 
 SELECT origin, SUM(fans) as nb_fans
 FROM metal_bands
